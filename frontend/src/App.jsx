@@ -12,8 +12,11 @@ import {
   X,
   RefreshCw,
   Trash2,
-  Mail
+  Mail,
+  Camera,
+  Video
 } from 'lucide-react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
 
 // Inline Brand Icons since they are not in the core lucide-react package anymore
@@ -98,6 +101,8 @@ const compressImageForCache = (file, callback) => {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -106,6 +111,12 @@ function App() {
   const [apiHealth, setApiHealth] = useState(null);
   const fileInputRef = useRef(null);
   const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+
+  // Live Camera states and refs
+  const [activeUploadTab, setActiveUploadTab] = useState('upload'); // 'upload' or 'camera'
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   // Restore state from sessionStorage on page load
   useEffect(() => {
@@ -168,6 +179,80 @@ function App() {
       console.warn('Backend API health check unreachable:', err);
     }
   };
+
+  // Camera Management Logic
+  const startCamera = async () => {
+    try {
+      setErrorMsg(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
+      });
+      streamRef.current = stream;
+      setIsCameraActive(true);
+    } catch (err) {
+      console.error("Camera access error:", err);
+      setErrorMsg("Failed to access camera. Please check permissions and connection.");
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const handleCapture = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    
+    // Create an offscreen canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Capture mirrored to match webcam preview
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setPreviewUrl(dataUrl);
+    
+    const file = dataURLtoFile(dataUrl, `captured-photo-${Date.now()}.jpg`);
+    setSelectedFile(file);
+    
+    // Cache in sessionStorage
+    try {
+      sessionStorage.setItem('cached_image_base64', dataUrl);
+      sessionStorage.setItem('cached_image_name', file.name);
+    } catch (err) {
+      console.warn("Storage quota exceeded, unable to cache captured photo:", err);
+    }
+    
+    stopCamera();
+  };
+
+  // Bind video stream once the video element is mounted in the DOM
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [isCameraActive]);
+
+  // Stop camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   // Handle Image Selection
   const handleFileChange = (file) => {
@@ -257,6 +342,7 @@ function App() {
 
       const data = await response.json();
       setAnalysisResult(data);
+      navigate('/dashboard');
     } catch (err) {
       console.error('Analysis error:', err);
       setErrorMsg(err.message || 'An error occurred while analyzing the image.');
@@ -282,35 +368,156 @@ function App() {
   // Render Upload Component Block
   const renderUploadSection = () => (
     <div className="upload-section-wrapper">
-      {/* Dropzone Card */}
-      <div className="glass-panel dropzone-card-wrapper">
-        {!previewUrl ? (
-          <div
-            className="dropzone-card"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
+      {/* Upload/Capture Mode Switcher */}
+      {!previewUrl && (
+        <div className="view-switcher" style={{ display: 'flex', width: '100%', marginBottom: '16px', padding: '4px', borderRadius: '30px' }}>
+          <button 
+            type="button"
+            className={`switch-btn ${activeUploadTab === 'upload' ? 'active' : ''}`}
+            onClick={() => {
+              stopCamera();
+              setActiveUploadTab('upload');
+            }}
+            style={{ flex: 1, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '26px' }}
           >
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              accept="image/*"
-              onChange={(e) => handleFileChange(e.target.files[0])}
-            />
-            <div className="upload-icon-wrapper">
-              <UploadCloud size={30} />
+            <UploadCloud size={16} />
+            <span>Upload File</span>
+          </button>
+          <button 
+            type="button"
+            className={`switch-btn ${activeUploadTab === 'camera' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveUploadTab('camera');
+            }}
+            style={{ flex: 1, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '26px' }}
+          >
+            <Camera size={16} />
+            <span>Live Camera</span>
+          </button>
+        </div>
+      )}
+
+      {/* Dropzone Card / Camera Player */}
+      <div className="glass-panel dropzone-card-wrapper" style={{ overflow: 'hidden' }}>
+        {!previewUrl ? (
+          activeUploadTab === 'upload' ? (
+            <div
+              className="dropzone-card"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/*"
+                onChange={(e) => handleFileChange(e.target.files[0])}
+              />
+              <div className="upload-icon-wrapper">
+                <UploadCloud size={30} />
+              </div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
+                Upload Image for AI Recognition
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                Drag & drop PNG, JPG, WEBP, GIF or click to browse
+              </p>
+              <div style={{ display: 'inline-flex', gap: '8px', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+                <span>Max file size: 10MB</span>
+              </div>
             </div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
-              Upload Image for AI Recognition
-            </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              Drag & drop PNG, JPG, WEBP, GIF or click to browse
-            </p>
-            <div style={{ display: 'inline-flex', gap: '8px', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-              <span>Max file size: 10MB</span>
-            </div>
-          </div>
+          ) : (
+            !isCameraActive ? (
+              <div
+                className="dropzone-card"
+                onClick={startCamera}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="upload-icon-wrapper">
+                  <Camera size={30} />
+                </div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Capture with Web Camera
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                  Take a live photo directly using your webcam
+                </p>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startCamera();
+                  }}
+                  style={{ margin: '0 auto' }}
+                >
+                  <Video size={14} />
+                  <span>Enable Camera Access</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{ position: 'relative', width: '100%', height: '240px', background: '#000', overflow: 'hidden' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+                />
+                {/* Scanner guide and controls overlay */}
+                <div style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  right: 0, 
+                  bottom: 0, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'space-between', 
+                  padding: '16px', 
+                  zIndex: 10, 
+                  background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.7) 100%)' 
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <span className="status-badge" style={{ background: 'rgba(229, 62, 62, 0.25)', border: '1px solid var(--primary)', color: '#fff', fontSize: '0.75rem', padding: '4px 10px' }}>
+                      <span className="status-dot" style={{ backgroundColor: '#ff3b30', animation: 'pulse 1.5s infinite' }}></span> Live Camera
+                    </span>
+                  </div>
+                  
+                  {/* Camera overlay crosshair marker */}
+                  <div style={{ 
+                    alignSelf: 'center', 
+                    width: '120px', 
+                    height: '120px', 
+                    border: '2px dashed rgba(255,255,255,0.4)', 
+                    borderRadius: '8px', 
+                    opacity: 0.6,
+                    pointerEvents: 'none'
+                  }} />
+                  
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                    <button 
+                      type="button" 
+                      className="btn-primary" 
+                      onClick={handleCapture}
+                      style={{ width: 'auto', padding: '8px 16px', fontSize: '0.85rem' }}
+                    >
+                      <Camera size={14} />
+                      <span>Capture Photo</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn-secondary" 
+                      onClick={stopCamera}
+                      style={{ padding: '8px 16px', fontSize: '0.85rem', color: '#fff' }}
+                    >
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          )
         ) : (
           <div className="preview-container">
             <img src={previewUrl} alt="Preview" className="preview-image" />
@@ -324,6 +531,8 @@ function App() {
                 sessionStorage.removeItem('cached_image_base64');
                 sessionStorage.removeItem('cached_image_name');
                 sessionStorage.removeItem('cached_analysis_result');
+                stopCamera();
+                navigate('/home');
               }}
               title="Remove Image"
             >
@@ -372,7 +581,7 @@ function App() {
     <div className="app-container">
       {/* Header */}
       <header className="app-header glass-panel">
-        <div className="header-brand">
+        <div className="header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
           <div>
             <div className="brand-title">Pixel<span style={{ color: 'var(--primary)' }}>Agent</span></div>
             <div className="brand-subtitle"></div>
@@ -380,147 +589,181 @@ function App() {
         </div>
 
         <div className="view-switcher">
-          <button className="switch-btn active" style={{ cursor: 'default' }}>
+          <button 
+            className={`switch-btn ${location.pathname === '/' || location.pathname === '/home' ? 'active' : ''}`}
+            onClick={() => navigate('/home')}
+          >
+            Home
+          </button>
+          <button 
+            className={`switch-btn ${location.pathname === '/dashboard' ? 'active' : ''}`}
+            onClick={() => {
+              if (analysisResult) {
+                navigate('/dashboard');
+              } else {
+                setErrorMsg('Please upload and analyze an image to view the dashboard.');
+              }
+            }}
+            style={{ 
+              opacity: !analysisResult ? 0.6 : 1, 
+              cursor: !analysisResult ? 'not-allowed' : 'pointer' 
+            }}
+            title={!analysisResult ? "Please run image recognition first" : "View recognition results"}
+          >
             Dashboard
           </button>
         </div>
       </header>
 
-      {/* Dynamic Layout Configuration */}
-      {!analysisResult ? (
-        <div className="centered-layout animate-fade-in">
-          {renderUploadSection()}
-        </div>
-      ) : (
-        <div className="main-grid animate-fade-in">
-          {/* Left Sidebar (Upload & Image Preview) */}
-          <aside className="sidebar-panel">
-            {renderUploadSection()}
-          </aside>
-
-          {/* Right Section (Core Image Recognition Results) */}
-          <main className="results-panel">
-            {/* API Key Warning Banner */}
-            {analysis?.apiError && (
-              <div className="glass-panel info-card" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fca5a5', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
-                  <AlertCircle size={18} color="#ef4444" />
-                  <span>Gemini API Key Notice</span>
-                </div>
-                <p style={{ color: '#f3f4f6', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
-                  {analysis.apiError}
-                </p>
-                <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#9ca3af' }}>
-                  👉 Get a free Gemini API key at: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-teal)', textDecoration: 'underline' }}>https://aistudio.google.com/app/apikey</a>
-                </div>
-              </div>
-            )}
-
-            {/* Primary Subject & Context Hero Banner */}
-            {analysis?.primaryIdentification && (
-              <div className="glass-panel info-card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15))', borderColor: 'rgba(99, 102, 241, 0.4)' }}>
-                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--accent-teal)', marginBottom: '4px' }}>
-                  🎯 Primary Subject Identified
-                </div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.4 }}>
-                  "{analysis.primaryIdentification}"
-                </div>
-              </div>
-            )}
-
-            {/* Title & Summary Description */}
-            <div className="glass-panel info-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
-                    {analysis?.title || 'Visual Recognition Result'}
-                  </h2>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    <span>Model: Gemini 2.0 Flash</span>
-                    <span>•</span>
-                    <span>Execution: {analysisResult.executionTimeMs || 0} ms</span>
-                  </div>
-                </div>
-
-                {analysis?.isMock && (
-                  <div className="status-badge fallback" title={analysis.message}>
-                    <Info size={14} />
-                    <span>Demo Mode (API Offline)</span>
-                  </div>
-                )}
-              </div>
-
-              {analysis?.isMock && analysis.message && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(229, 62, 62, 0.08)',
-                  border: '1px solid rgba(229, 62, 62, 0.2)',
-                  fontSize: '0.82rem',
-                  color: 'var(--accent-rose)',
-                  lineHeight: '1.45',
-                  fontFamily: 'var(--font-mono)'
-                }}>
-                  <strong>API System Message:</strong> {analysis.message}
-                </div>
-              )}
-
-              <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.6, margin: 0 }}>
-                {analysis?.summary}
-              </p>
+      {/* Routes configuration */}
+      <Routes>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route 
+          path="/home" 
+          element={
+            <div className="centered-layout animate-fade-in">
+              {renderUploadSection()}
             </div>
+          } 
+        />
+        <Route 
+          path="/dashboard" 
+          element={
+            analysisResult ? (
+              <div className="main-grid animate-fade-in">
+                {/* Left Sidebar (Upload & Image Preview) */}
+                <aside className="sidebar-panel">
+                  {renderUploadSection()}
+                </aside>
 
-            {/* Detected Objects List */}
-            <div className="glass-panel info-card">
-              <div className="card-heading" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '10px' }}>
-                <Layers size={18} color="var(--accent-cyan)" />
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Detected Objects & Confidence Scores</span>
-              </div>
-              <div className="objects-grid">
-                {analysis?.detectedObjects?.map((obj, idx) => (
-                  <div key={idx} className="object-item">
-                    <div className="object-header">
-                      <span className="object-title">{obj.label}</span>
-                      <span className="confidence-pill">{obj.confidence}</span>
+                {/* Right Section (Core Image Recognition Results) */}
+                <main className="results-panel">
+                  {/* API Key Warning Banner */}
+                  {analysis?.apiError && (
+                    <div className="glass-panel info-card" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fca5a5', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
+                        <AlertCircle size={18} color="#ef4444" />
+                        <span>Gemini API Key Notice</span>
+                      </div>
+                      <p style={{ color: '#f3f4f6', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
+                        {analysis.apiError}
+                      </p>
+                      <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#9ca3af' }}>
+                        👉 Get a free Gemini API key at: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-teal)', textDecoration: 'underline' }}>https://aistudio.google.com/app/apikey</a>
+                      </div>
                     </div>
-                    <p className="object-desc">{obj.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  )}
 
-            {/* Classification Tags */}
-            {analysis?.tags && analysis.tags.length > 0 && (
-              <div className="glass-panel info-card">
-                <div className="card-heading">
-                  <Tag size={18} color="var(--primary)" />
-                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Classification Tags</span>
-                </div>
-                <div className="tags-wrapper">
-                  {analysis.tags.map((tag, idx) => (
-                    <div key={idx} className="tag-badge">
-                      <span>#</span>
-                      <span>{tag}</span>
+                  {/* Primary Subject & Context Hero Banner */}
+                  {analysis?.primaryIdentification && (
+                    <div className="glass-panel info-card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15))', borderColor: 'rgba(99, 102, 241, 0.4)' }}>
+                      <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--accent-teal)', marginBottom: '4px' }}>
+                        🎯 Primary Subject Identified
+                      </div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.4 }}>
+                        "{analysis.primaryIdentification}"
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  )}
 
-            {/* Export JSON Report */}
-            <div className="glass-panel export-bar">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Analysis complete • JSON report ready for download
-              </span>
-              <button className="btn-secondary" onClick={handleDownloadReport}>
-                <Download size={14} />
-                <span>Export JSON Report</span>
-              </button>
-            </div>
-          </main>
-        </div>
-      )}
+                  {/* Title & Summary Description */}
+                  <div className="glass-panel info-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
+                          {analysis?.title || 'Visual Recognition Result'}
+                        </h2>
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <span>Model: Gemini 2.0 Flash</span>
+                          <span>•</span>
+                          <span>Execution: {analysisResult.executionTimeMs || 0} ms</span>
+                        </div>
+                      </div>
+
+                      {analysis?.isMock && (
+                        <div className="status-badge fallback" title={analysis.message}>
+                          <Info size={14} />
+                          <span>Demo Mode (API Offline)</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {analysis?.isMock && analysis.message && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(229, 62, 62, 0.08)',
+                        border: '1px solid rgba(229, 62, 62, 0.2)',
+                        fontSize: '0.82rem',
+                        color: 'var(--accent-rose)',
+                        lineHeight: '1.45',
+                        fontFamily: 'var(--font-mono)'
+                      }}>
+                        <strong>API System Message:</strong> {analysis.message}
+                      </div>
+                    )}
+
+                    <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.6, margin: 0 }}>
+                      {analysis?.summary}
+                    </p>
+                  </div>
+
+                  {/* Detected Objects List */}
+                  <div className="glass-panel info-card">
+                    <div className="card-heading" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '10px' }}>
+                      <Layers size={18} color="var(--accent-cyan)" />
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Detected Objects & Confidence Scores</span>
+                    </div>
+                    <div className="objects-grid">
+                      {analysis?.detectedObjects?.map((obj, idx) => (
+                        <div key={idx} className="object-item">
+                          <div className="object-header">
+                            <span className="object-title">{obj.label}</span>
+                            <span className="confidence-pill">{obj.confidence}</span>
+                          </div>
+                          <p className="object-desc">{obj.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Classification Tags */}
+                  {analysis?.tags && analysis.tags.length > 0 && (
+                    <div className="glass-panel info-card">
+                      <div className="card-heading">
+                        <Tag size={18} color="var(--primary)" />
+                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Classification Tags</span>
+                      </div>
+                      <div className="tags-wrapper">
+                        {analysis.tags.map((tag, idx) => (
+                          <div key={idx} className="tag-badge">
+                            <span>#</span>
+                            <span>{tag}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Export JSON Report */}
+                  <div className="glass-panel export-bar">
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Analysis complete • JSON report ready for download
+                    </span>
+                    <button className="btn-secondary" onClick={handleDownloadReport}>
+                      <Download size={14} />
+                      <span>Export JSON Report</span>
+                    </button>
+                  </div>
+                </main>
+              </div>
+            ) : (
+              <Navigate to="/home" replace />
+            )
+          } 
+        />
+      </Routes>
 
       {/* Footer */}
       <footer className="app-footer glass-panel">

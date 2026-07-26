@@ -1,10 +1,10 @@
 # 👁️ AI Image Recognition Agent
 
-> **Autonomous AI-powered Computer Vision Platform built with Google Gemini 2.5 Flash, Node.js, Express, React, and Vite.**
+> **Autonomous AI-powered Computer Vision Platform built with Google Gemini 3.5 Flash, Node.js, Express, React, and Vite.**
 
 ![Node.js](https://img.shields.io/badge/Node.js-Express-green)
 ![React](https://img.shields.io/badge/React-Vite-blue)
-![Gemini](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-orange)
+![Gemini](https://img.shields.io/badge/Google-Gemini%203.5%20Flash-orange)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2023-yellow)
 ![License](https://img.shields.io/badge/License-MIT-success)
 
@@ -16,14 +16,16 @@
 
 Unlike traditional image classifiers, this project functions as an **autonomous AI agent**, capable of understanding images, answering follow-up questions, extracting text, detecting objects, analyzing scenes, identifying dominant colors, and performing safety analysis.
 
-The agent leverages **Google Gemini 2.5 Flash Vision** for multimodal reasoning and provides an interactive experience through a modern React dashboard.
+The agent leverages **Google Gemini 3.5 Flash** for multimodal reasoning and provides an interactive experience through a modern React dashboard.
 
 ---
 
 # ⚙️ What It Does
 
-The Image Recognition Agent analyzes uploaded images to perform:
+The Image Recognition Agent analyzes uploaded/captured images to perform:
 
+- Live Web Camera Capture (Take snapshots directly from web webcam)
+- Client-Side Routing (Distinct workspace and dashboard paths)
 - Object Detection
 - Scene Understanding
 - Image Captioning
@@ -193,6 +195,7 @@ Reports can be exported as:
 ## Frontend
 
 - React 19
+- React Router Dom v6 (Client-side routing)
 - Vite
 - Vanilla CSS
 - Lucide React
@@ -213,7 +216,7 @@ Reports can be exported as:
 
 ## AI Model
 
-- Google Gemini 2.5 Flash
+- Google Gemini 3.5 Flash (with fallback model chain)
 - Multimodal Vision API
 
 ---
@@ -259,6 +262,19 @@ AI-Image-Recognition-Agent/
 ---
 
 # 🚀 Core Features
+
+## 📷 Live Camera Capture
+
+- Captures live photos via webcam (`navigator.mediaDevices.getUserMedia`)
+- Mirrored video feed for intuitive alignment
+- Offscreen canvas capture rendering
+- Automatic redirect to dashboard upon snapshot analysis
+
+## 🛣️ Client-Side Routing
+
+- Custom URLs `/home` (workspace) and `/dashboard` (results)
+- Interactive capsule switcher inside navigation header
+- Dynamic state-based redirections
 
 ## 👁️ Image Analysis
 
