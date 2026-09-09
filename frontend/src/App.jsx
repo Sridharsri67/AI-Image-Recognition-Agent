@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Eye,
   UploadCloud,
@@ -14,10 +14,16 @@ import {
   Trash2,
   Mail,
   Camera,
-  Video
-} from 'lucide-react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import './App.css';
+  Video,
+} from "lucide-react";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import "./App.css";
 
 // Inline Brand Icons since they are not in the core lucide-react package anymore
 const LinkedinIcon = (props) => (
@@ -59,7 +65,7 @@ const GithubIcon = (props) => (
 
 // Convert base64 dataURL back to a File object for analysis form submission
 const dataURLtoFile = (dataurl, filename) => {
-  const arr = dataurl.split(',');
+  const arr = dataurl.split(",");
   const mime = arr[0].match(/:(.*?);/)[1];
   const bstr = atob(arr[1]);
   let n = bstr.length;
@@ -76,7 +82,7 @@ const compressImageForCache = (file, callback) => {
   reader.onload = (e) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       let width = img.width;
       let height = img.height;
       const MAX_SIZE = 800; // Limit image dimensions to stay inside 5MB quota
@@ -91,9 +97,9 @@ const compressImageForCache = (file, callback) => {
       }
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL('image/jpeg', 0.7));
+      callback(canvas.toDataURL("image/jpeg", 0.7));
     };
     img.src = e.target.result;
   };
@@ -110,19 +116,23 @@ function App() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [apiHealth, setApiHealth] = useState(null);
   const fileInputRef = useRef(null);
-  const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+  const [userApiKey, setUserApiKey] = useState(
+    localStorage.getItem("gemini_api_key") || "",
+  );
 
   // Live Camera states and refs
-  const [activeUploadTab, setActiveUploadTab] = useState('upload'); // 'upload' or 'camera'
+  const [activeUploadTab, setActiveUploadTab] = useState("upload"); // 'upload' or 'camera'
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
   // Restore state from sessionStorage on page load
   useEffect(() => {
-    const cachedImageBase64 = sessionStorage.getItem('cached_image_base64');
-    const cachedImageName = sessionStorage.getItem('cached_image_name');
-    const cachedAnalysisResult = sessionStorage.getItem('cached_analysis_result');
+    const cachedImageBase64 = sessionStorage.getItem("cached_image_base64");
+    const cachedImageName = sessionStorage.getItem("cached_image_name");
+    const cachedAnalysisResult = sessionStorage.getItem(
+      "cached_analysis_result",
+    );
 
     if (cachedImageBase64 && cachedImageName) {
       try {
@@ -147,12 +157,18 @@ function App() {
   useEffect(() => {
     if (analysisResult) {
       try {
-        sessionStorage.setItem('cached_analysis_result', JSON.stringify(analysisResult));
+        sessionStorage.setItem(
+          "cached_analysis_result",
+          JSON.stringify(analysisResult),
+        );
       } catch (err) {
-        console.warn("Storage quota exceeded, unable to cache analysis result:", err);
+        console.warn(
+          "Storage quota exceeded, unable to cache analysis result:",
+          err,
+        );
       }
     } else {
-      sessionStorage.removeItem('cached_analysis_result');
+      sessionStorage.removeItem("cached_analysis_result");
     }
   }, [analysisResult]);
 
@@ -163,20 +179,20 @@ function App() {
 
   const handleApiKeyChange = (val) => {
     setUserApiKey(val);
-    localStorage.setItem('gemini_api_key', val);
+    localStorage.setItem("gemini_api_key", val);
   };
 
   const fetchHealth = async () => {
     try {
       const headers = {};
-      if (userApiKey) headers['x-gemini-api-key'] = userApiKey;
-      const res = await fetch('/api/health', { headers });
+      if (userApiKey) headers["x-gemini-api-key"] = userApiKey;
+      const res = await fetch("/api/health", { headers });
       if (res.ok) {
         const data = await res.json();
         setApiHealth(data);
       }
     } catch (err) {
-      console.warn('Backend API health check unreachable:', err);
+      console.warn("Backend API health check unreachable:", err);
     }
   };
 
@@ -184,21 +200,27 @@ function App() {
   const startCamera = async () => {
     try {
       setErrorMsg(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
       });
       streamRef.current = stream;
       setIsCameraActive(true);
     } catch (err) {
       console.error("Camera access error:", err);
-      setErrorMsg("Failed to access camera. Please check permissions and connection.");
+      setErrorMsg(
+        "Failed to access camera. Please check permissions and connection.",
+      );
       setIsCameraActive(false);
     }
   };
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
     setIsCameraActive(false);
@@ -207,34 +229,37 @@ function App() {
   const handleCapture = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
-    
+
     // Create an offscreen canvas
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
-    
-    const ctx = canvas.getContext('2d');
-    
+
+    const ctx = canvas.getContext("2d");
+
     // Capture mirrored to match webcam preview
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
-    
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     setPreviewUrl(dataUrl);
-    
+
     const file = dataURLtoFile(dataUrl, `captured-photo-${Date.now()}.jpg`);
     setSelectedFile(file);
-    
+
     // Cache in sessionStorage
     try {
-      sessionStorage.setItem('cached_image_base64', dataUrl);
-      sessionStorage.setItem('cached_image_name', file.name);
+      sessionStorage.setItem("cached_image_base64", dataUrl);
+      sessionStorage.setItem("cached_image_name", file.name);
     } catch (err) {
-      console.warn("Storage quota exceeded, unable to cache captured photo:", err);
+      console.warn(
+        "Storage quota exceeded, unable to cache captured photo:",
+        err,
+      );
     }
-    
+
     stopCamera();
   };
 
@@ -249,7 +274,7 @@ function App() {
   useEffect(() => {
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
@@ -257,8 +282,10 @@ function App() {
   // Handle Image Selection
   const handleFileChange = (file) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Please select a valid image file (PNG, JPG, WEBP, GIF, SVG).');
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg(
+        "Please select a valid image file (PNG, JPG, WEBP, GIF, SVG).",
+      );
       return;
     }
     setErrorMsg(null);
@@ -270,10 +297,13 @@ function App() {
     // Compress and cache in sessionStorage
     compressImageForCache(file, (compressedBase64) => {
       try {
-        sessionStorage.setItem('cached_image_base64', compressedBase64);
-        sessionStorage.setItem('cached_image_name', file.name);
+        sessionStorage.setItem("cached_image_base64", compressedBase64);
+        sessionStorage.setItem("cached_image_name", file.name);
       } catch (err) {
-        console.warn("Storage quota exceeded, unable to cache image in sessionStorage:", err);
+        console.warn(
+          "Storage quota exceeded, unable to cache image in sessionStorage:",
+          err,
+        );
       }
     });
   };
@@ -288,7 +318,7 @@ function App() {
   // Trigger Analysis
   const handleAnalyze = async () => {
     if (!selectedFile && !previewUrl) {
-      setErrorMsg('Please upload an image first.');
+      setErrorMsg("Please upload an image first.");
       return;
     }
 
@@ -298,30 +328,33 @@ function App() {
     try {
       const formData = new FormData();
       if (selectedFile) {
-        formData.append('image', selectedFile);
+        formData.append("image", selectedFile);
       } else if (previewUrl) {
         const resp = await fetch(previewUrl);
         const blob = await resp.blob();
-        formData.append('image', new File([blob], 'image.png', { type: blob.type }));
+        formData.append(
+          "image",
+          new File([blob], "image.png", { type: blob.type }),
+        );
       }
 
       const reqHeaders = {};
-      if (userApiKey) reqHeaders['x-gemini-api-key'] = userApiKey;
+      if (userApiKey) reqHeaders["x-gemini-api-key"] = userApiKey;
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
+      const response = await fetch("/api/analyze", {
+        method: "POST",
         headers: reqHeaders,
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {
-        let errMsg = 'Failed to complete image analysis';
+        let errMsg = "Failed to complete image analysis";
         try {
           const errData = await response.json();
           errMsg = errData.message || errData.error || errMsg;
 
-          if (typeof errMsg === 'string' && errMsg.includes('{')) {
-            const jsonStart = errMsg.indexOf('{');
+          if (typeof errMsg === "string" && errMsg.includes("{")) {
+            const jsonStart = errMsg.indexOf("{");
             const jsonString = errMsg.slice(jsonStart);
             try {
               const parsedSub = JSON.parse(jsonString);
@@ -342,10 +375,12 @@ function App() {
 
       const data = await response.json();
       setAnalysisResult(data);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      console.error('Analysis error:', err);
-      setErrorMsg(err.message || 'An error occurred while analyzing the image.');
+      console.error("Analysis error:", err);
+      setErrorMsg(
+        err.message || "An error occurred while analyzing the image.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -355,9 +390,9 @@ function App() {
   const handleDownloadReport = () => {
     if (!analysisResult) return;
     const jsonStr = JSON.stringify(analysisResult, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `image-recognition-report-${Date.now()}.json`;
     a.click();
@@ -370,26 +405,51 @@ function App() {
     <div className="upload-section-wrapper">
       {/* Upload/Capture Mode Switcher */}
       {!previewUrl && (
-        <div className="view-switcher" style={{ display: 'flex', width: '100%', marginBottom: '16px', padding: '4px', borderRadius: '30px' }}>
-          <button 
+        <div
+          className="view-switcher"
+          style={{
+            display: "flex",
+            width: "100%",
+            marginBottom: "16px",
+            padding: "4px",
+            borderRadius: "30px",
+          }}
+        >
+          <button
             type="button"
-            className={`switch-btn ${activeUploadTab === 'upload' ? 'active' : ''}`}
+            className={`switch-btn ${activeUploadTab === "upload" ? "active" : ""}`}
             onClick={() => {
               stopCamera();
-              setActiveUploadTab('upload');
+              setActiveUploadTab("upload");
             }}
-            style={{ flex: 1, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '26px' }}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              borderRadius: "26px",
+            }}
           >
             <UploadCloud size={16} />
             <span>Upload File</span>
           </button>
-          <button 
+          <button
             type="button"
-            className={`switch-btn ${activeUploadTab === 'camera' ? 'active' : ''}`}
+            className={`switch-btn ${activeUploadTab === "camera" ? "active" : ""}`}
             onClick={() => {
-              setActiveUploadTab('camera');
+              setActiveUploadTab("camera");
             }}
-            style={{ flex: 1, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '26px' }}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              borderRadius: "26px",
+            }}
           >
             <Camera size={16} />
             <span>Live Camera</span>
@@ -398,9 +458,12 @@ function App() {
       )}
 
       {/* Dropzone Card / Camera Player */}
-      <div className="glass-panel dropzone-card-wrapper" style={{ overflow: 'hidden' }}>
+      <div
+        className="glass-panel dropzone-card-wrapper"
+        style={{ overflow: "hidden" }}
+      >
         {!previewUrl ? (
-          activeUploadTab === 'upload' ? (
+          activeUploadTab === "upload" ? (
             <div
               className="dropzone-card"
               onDragOver={(e) => e.preventDefault()}
@@ -410,113 +473,190 @@ function App() {
               <input
                 type="file"
                 ref={fileInputRef}
-                style={{ display: 'none' }}
+                style={{ display: "none" }}
                 accept="image/*"
                 onChange={(e) => handleFileChange(e.target.files[0])}
               />
               <div className="upload-icon-wrapper">
                 <UploadCloud size={30} />
               </div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
+              <h3
+                style={{
+                  fontSize: "1.05rem",
+                  fontWeight: 700,
+                  marginBottom: "6px",
+                }}
+              >
                 Upload Image for AI Recognition
               </h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+              <p
+                style={{
+                  fontSize: "0.82rem",
+                  color: "var(--text-muted)",
+                  marginBottom: "14px",
+                }}
+              >
                 Drag & drop PNG, JPG, WEBP, GIF or click to browse
               </p>
-              <div style={{ display: 'inline-flex', gap: '8px', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  gap: "8px",
+                  fontSize: "0.78rem",
+                  color: "var(--text-dim)",
+                }}
+              >
                 <span>Max file size: 10MB</span>
               </div>
             </div>
-          ) : (
-            !isCameraActive ? (
-              <div
-                className="dropzone-card"
-                onClick={startCamera}
-                style={{ cursor: 'pointer' }}
+          ) : !isCameraActive ? (
+            <div
+              className="dropzone-card"
+              onClick={startCamera}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="upload-icon-wrapper">
+                <Camera size={30} />
+              </div>
+              <h3
+                style={{
+                  fontSize: "1.05rem",
+                  fontWeight: 700,
+                  marginBottom: "6px",
+                }}
               >
-                <div className="upload-icon-wrapper">
-                  <Camera size={30} />
+                Capture with Web Camera
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.82rem",
+                  color: "var(--text-muted)",
+                  marginBottom: "14px",
+                }}
+              >
+                Take a live photo directly using your webcam
+              </p>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startCamera();
+                }}
+                style={{ margin: "0 auto" }}
+              >
+                <Video size={14} />
+                <span>Enable Camera Access</span>
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "240px",
+                background: "#000",
+                overflow: "hidden",
+              }}
+            >
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transform: "scaleX(-1)",
+                }}
+              />
+              {/* Scanner guide and controls overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  padding: "16px",
+                  zIndex: 10,
+                  background:
+                    "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.7) 100%)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <span
+                    className="status-badge"
+                    style={{
+                      background: "rgba(229, 62, 62, 0.25)",
+                      border: "1px solid var(--primary)",
+                      color: "#fff",
+                      fontSize: "0.75rem",
+                      padding: "4px 10px",
+                    }}
+                  >
+                    <span
+                      className="status-dot"
+                      style={{
+                        backgroundColor: "#ff3b30",
+                        animation: "pulse 1.5s infinite",
+                      }}
+                    ></span>{" "}
+                    Live Camera
+                  </span>
                 </div>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
-                  Capture with Web Camera
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                  Take a live photo directly using your webcam
-                </p>
-                <button 
-                  type="button" 
-                  className="btn-secondary" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startCamera();
-                  }}
-                  style={{ margin: '0 auto' }}
-                >
-                  <Video size={14} />
-                  <span>Enable Camera Access</span>
-                </button>
-              </div>
-            ) : (
-              <div style={{ position: 'relative', width: '100%', height: '240px', background: '#000', overflow: 'hidden' }}>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-                />
-                {/* Scanner guide and controls overlay */}
-                <div style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  right: 0, 
-                  bottom: 0, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'space-between', 
-                  padding: '16px', 
-                  zIndex: 10, 
-                  background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.7) 100%)' 
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <span className="status-badge" style={{ background: 'rgba(229, 62, 62, 0.25)', border: '1px solid var(--primary)', color: '#fff', fontSize: '0.75rem', padding: '4px 10px' }}>
-                      <span className="status-dot" style={{ backgroundColor: '#ff3b30', animation: 'pulse 1.5s infinite' }}></span> Live Camera
-                    </span>
-                  </div>
-                  
-                  {/* Camera overlay crosshair marker */}
-                  <div style={{ 
-                    alignSelf: 'center', 
-                    width: '120px', 
-                    height: '120px', 
-                    border: '2px dashed rgba(255,255,255,0.4)', 
-                    borderRadius: '8px', 
+
+                {/* Camera overlay crosshair marker */}
+                <div
+                  style={{
+                    alignSelf: "center",
+                    width: "120px",
+                    height: "120px",
+                    border: "2px dashed rgba(255,255,255,0.4)",
+                    borderRadius: "8px",
                     opacity: 0.6,
-                    pointerEvents: 'none'
-                  }} />
-                  
-                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                    <button 
-                      type="button" 
-                      className="btn-primary" 
-                      onClick={handleCapture}
-                      style={{ width: 'auto', padding: '8px 16px', fontSize: '0.85rem' }}
-                    >
-                      <Camera size={14} />
-                      <span>Capture Photo</span>
-                    </button>
-                    <button 
-                      type="button" 
-                      className="btn-secondary" 
-                      onClick={stopCamera}
-                      style={{ padding: '8px 16px', fontSize: '0.85rem', color: '#fff' }}
-                    >
-                      <span>Cancel</span>
-                    </button>
-                  </div>
+                    pointerEvents: "none",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleCapture}
+                    style={{
+                      width: "auto",
+                      padding: "8px 16px",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    <Camera size={14} />
+                    <span>Capture Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={stopCamera}
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: "0.85rem",
+                      color: "#fff",
+                    }}
+                  >
+                    <span>Cancel</span>
+                  </button>
                 </div>
               </div>
-            )
+            </div>
           )
         ) : (
           <div className="preview-container">
@@ -528,11 +668,11 @@ function App() {
                 setSelectedFile(null);
                 setPreviewUrl(null);
                 setAnalysisResult(null);
-                sessionStorage.removeItem('cached_image_base64');
-                sessionStorage.removeItem('cached_image_name');
-                sessionStorage.removeItem('cached_analysis_result');
+                sessionStorage.removeItem("cached_image_base64");
+                sessionStorage.removeItem("cached_image_name");
+                sessionStorage.removeItem("cached_analysis_result");
                 stopCamera();
-                navigate('/home');
+                navigate("/home");
               }}
               title="Remove Image"
             >
@@ -543,16 +683,20 @@ function App() {
       </div>
 
       {/* Action Trigger Card */}
-      <div className="glass-panel info-card" style={{ marginTop: '16px' }}>
+      <div className="glass-panel info-card" style={{ marginTop: "16px" }}>
         <button
           className="btn-primary"
           onClick={handleAnalyze}
           disabled={isAnalyzing || (!selectedFile && !previewUrl)}
-          style={{ width: '100%' }}
+          style={{ width: "100%" }}
         >
           {isAnalyzing ? (
             <>
-              <RefreshCw size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+              <RefreshCw
+                size={18}
+                className="spin"
+                style={{ animation: "spin 1s linear infinite" }}
+              />
               <span>Analyzing Image...</span>
             </>
           ) : (
@@ -565,12 +709,28 @@ function App() {
       </div>
 
       {errorMsg && (
-        <div className="glass-panel info-card" style={{ borderColor: 'var(--accent-rose)', background: 'rgba(244, 63, 94, 0.1)', marginTop: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--accent-rose)', fontWeight: 600 }}>
-            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div className="compact-error-box">
-              {errorMsg}
-            </div>
+        <div
+          className="glass-panel info-card"
+          style={{
+            borderColor: "var(--accent-rose)",
+            background: "rgba(244, 63, 94, 0.1)",
+            marginTop: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              color: "var(--accent-rose)",
+              fontWeight: 600,
+            }}
+          >
+            <AlertCircle
+              size={18}
+              style={{ flexShrink: 0, marginTop: "2px" }}
+            />
+            <div className="compact-error-box">{errorMsg}</div>
           </div>
         </div>
       )}
@@ -581,34 +741,46 @@ function App() {
     <div className="app-container">
       {/* Header */}
       <header className="app-header glass-panel">
-        <div className="header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+        <div
+          className="header-brand"
+          onClick={() => navigate("/home")}
+          style={{ cursor: "pointer" }}
+        >
           <div>
-            <div className="brand-title">Pixel<span style={{ color: 'var(--primary)' }}>Agent</span></div>
+            <div className="brand-title">
+              Pixel<span style={{ color: "var(--primary)" }}>Agent</span>
+            </div>
             <div className="brand-subtitle"></div>
           </div>
         </div>
 
         <div className="view-switcher">
-          <button 
-            className={`switch-btn ${location.pathname === '/' || location.pathname === '/home' ? 'active' : ''}`}
-            onClick={() => navigate('/home')}
+          <button
+            className={`switch-btn ${location.pathname === "/" || location.pathname === "/home" ? "active" : ""}`}
+            onClick={() => navigate("/home")}
           >
             Home
           </button>
-          <button 
-            className={`switch-btn ${location.pathname === '/dashboard' ? 'active' : ''}`}
+          <button
+            className={`switch-btn ${location.pathname === "/dashboard" ? "active" : ""}`}
             onClick={() => {
               if (analysisResult) {
-                navigate('/dashboard');
+                navigate("/dashboard");
               } else {
-                setErrorMsg('Please upload and analyze an image to view the dashboard.');
+                setErrorMsg(
+                  "Please upload and analyze an image to view the dashboard.",
+                );
               }
             }}
-            style={{ 
-              opacity: !analysisResult ? 0.6 : 1, 
-              cursor: !analysisResult ? 'not-allowed' : 'pointer' 
+            style={{
+              opacity: !analysisResult ? 0.6 : 1,
+              cursor: !analysisResult ? "not-allowed" : "pointer",
             }}
-            title={!analysisResult ? "Please run image recognition first" : "View recognition results"}
+            title={
+              !analysisResult
+                ? "Please run image recognition first"
+                : "View recognition results"
+            }
           >
             Dashboard
           </button>
@@ -618,49 +790,110 @@ function App() {
       {/* Routes configuration */}
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route 
-          path="/home" 
+        <Route
+          path="/home"
           element={
             <div className="centered-layout animate-fade-in">
               {renderUploadSection()}
             </div>
-          } 
+          }
         />
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/dashboard"
           element={
             analysisResult ? (
               <div className="main-grid animate-fade-in">
                 {/* Left Sidebar (Upload & Image Preview) */}
-                <aside className="sidebar-panel">
-                  {renderUploadSection()}
-                </aside>
+                <aside className="sidebar-panel">{renderUploadSection()}</aside>
 
                 {/* Right Section (Core Image Recognition Results) */}
                 <main className="results-panel">
                   {/* API Key Warning Banner */}
                   {analysis?.apiError && (
-                    <div className="glass-panel info-card" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fca5a5', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
+                    <div
+                      className="glass-panel info-card"
+                      style={{
+                        background: "rgba(239, 68, 68, 0.15)",
+                        borderColor: "#ef4444",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          color: "#fca5a5",
+                          fontWeight: 700,
+                          fontSize: "0.95rem",
+                          marginBottom: "6px",
+                        }}
+                      >
                         <AlertCircle size={18} color="#ef4444" />
                         <span>Gemini API Key Notice</span>
                       </div>
-                      <p style={{ color: '#f3f4f6', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
+                      <p
+                        style={{
+                          color: "#f3f4f6",
+                          fontSize: "0.88rem",
+                          margin: 0,
+                          lineHeight: 1.5,
+                        }}
+                      >
                         {analysis.apiError}
                       </p>
-                      <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#9ca3af' }}>
-                        👉 Get a free Gemini API key at: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-teal)', textDecoration: 'underline' }}>https://aistudio.google.com/app/apikey</a>
+                      <div
+                        style={{
+                          marginTop: "8px",
+                          fontSize: "0.8rem",
+                          color: "#9ca3af",
+                        }}
+                      >
+                        👉 Get a free Gemini API key at:{" "}
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            color: "var(--accent-teal)",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          https://aistudio.google.com/app/apikey
+                        </a>
                       </div>
                     </div>
                   )}
 
                   {/* Primary Subject & Context Hero Banner */}
                   {analysis?.primaryIdentification && (
-                    <div className="glass-panel info-card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15))', borderColor: 'rgba(99, 102, 241, 0.4)' }}>
-                      <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--accent-teal)', marginBottom: '4px' }}>
+                    <div
+                      className="glass-panel info-card"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15))",
+                        borderColor: "rgba(99, 102, 241, 0.4)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.78rem",
+                          textTransform: "uppercase",
+                          fontWeight: 800,
+                          letterSpacing: "0.08em",
+                          color: "var(--accent-teal)",
+                          marginBottom: "4px",
+                        }}
+                      >
                         🎯 Primary Subject Identified
                       </div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.4 }}>
+                      <div
+                        style={{
+                          fontSize: "1.2rem",
+                          fontWeight: 800,
+                          color: "#ffffff",
+                          lineHeight: 1.4,
+                        }}
+                      >
                         "{analysis.primaryIdentification}"
                       </div>
                     </div>
@@ -668,20 +901,46 @@ function App() {
 
                   {/* Title & Summary Description */}
                   <div className="glass-panel info-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        marginBottom: "14px",
+                      }}
+                    >
                       <div>
-                        <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
-                          {analysis?.title || 'Visual Recognition Result'}
+                        <h2
+                          style={{
+                            fontSize: "1.35rem",
+                            fontWeight: 800,
+                            color: "#fff",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {analysis?.title || "Visual Recognition Result"}
                         </h2>
-                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "12px",
+                            fontSize: "0.8rem",
+                            color: "var(--text-muted)",
+                          }}
+                        >
                           <span>Model: Gemini 2.0 Flash</span>
                           <span>•</span>
-                          <span>Execution: {analysisResult.executionTimeMs || 0} ms</span>
+                          <span>
+                            Execution: {analysisResult.executionTimeMs || 0} ms
+                          </span>
                         </div>
                       </div>
 
                       {analysis?.isMock && (
-                        <div className="status-badge fallback" title={analysis.message}>
+                        <div
+                          className="status-badge fallback"
+                          title={analysis.message}
+                        >
                           <Info size={14} />
                           <span>Demo Mode (API Offline)</span>
                         </div>
@@ -689,38 +948,64 @@ function App() {
                     </div>
 
                     {analysis?.isMock && analysis.message && (
-                      <div style={{
-                        marginTop: '12px',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(229, 62, 62, 0.08)',
-                        border: '1px solid rgba(229, 62, 62, 0.2)',
-                        fontSize: '0.82rem',
-                        color: 'var(--accent-rose)',
-                        lineHeight: '1.45',
-                        fontFamily: 'var(--font-mono)'
-                      }}>
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          padding: "10px 14px",
+                          borderRadius: "var(--radius-sm)",
+                          background: "rgba(229, 62, 62, 0.08)",
+                          border: "1px solid rgba(229, 62, 62, 0.2)",
+                          fontSize: "0.82rem",
+                          color: "var(--accent-rose)",
+                          lineHeight: "1.45",
+                          fontFamily: "var(--font-mono)",
+                        }}
+                      >
                         <strong>API System Message:</strong> {analysis.message}
                       </div>
                     )}
 
-                    <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.6, margin: 0 }}>
+                    <p
+                      style={{
+                        fontSize: "0.95rem",
+                        color: "var(--text-main)",
+                        lineHeight: 1.6,
+                        margin: 0,
+                      }}
+                    >
                       {analysis?.summary}
                     </p>
                   </div>
 
                   {/* Detected Objects List */}
                   <div className="glass-panel info-card">
-                    <div className="card-heading" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '10px' }}>
+                    <div
+                      className="card-heading"
+                      style={{
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        paddingBottom: "10px",
+                      }}
+                    >
                       <Layers size={18} color="var(--accent-cyan)" />
-                      <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Detected Objects & Confidence Scores</span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 700,
+                          color: "#fff",
+                          marginLeft: "8px",
+                        }}
+                      >
+                        Detected Objects & Confidence Scores
+                      </span>
                     </div>
                     <div className="objects-grid">
                       {analysis?.detectedObjects?.map((obj, idx) => (
                         <div key={idx} className="object-item">
                           <div className="object-header">
                             <span className="object-title">{obj.label}</span>
-                            <span className="confidence-pill">{obj.confidence}</span>
+                            <span className="confidence-pill">
+                              {obj.confidence}
+                            </span>
                           </div>
                           <p className="object-desc">{obj.description}</p>
                         </div>
@@ -733,7 +1018,16 @@ function App() {
                     <div className="glass-panel info-card">
                       <div className="card-heading">
                         <Tag size={18} color="var(--primary)" />
-                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginLeft: '8px' }}>Classification Tags</span>
+                        <span
+                          style={{
+                            fontSize: "1rem",
+                            fontWeight: 700,
+                            color: "#fff",
+                            marginLeft: "8px",
+                          }}
+                        >
+                          Classification Tags
+                        </span>
                       </div>
                       <div className="tags-wrapper">
                         {analysis.tags.map((tag, idx) => (
@@ -748,10 +1042,18 @@ function App() {
 
                   {/* Export JSON Report */}
                   <div className="glass-panel export-bar">
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    <span
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "var(--text-muted)",
+                      }}
+                    >
                       Analysis complete • JSON report ready for download
                     </span>
-                    <button className="btn-secondary" onClick={handleDownloadReport}>
+                    <button
+                      className="btn-secondary"
+                      onClick={handleDownloadReport}
+                    >
                       <Download size={14} />
                       <span>Export JSON Report</span>
                     </button>
@@ -761,25 +1063,43 @@ function App() {
             ) : (
               <Navigate to="/home" replace />
             )
-          } 
+          }
         />
       </Routes>
 
       {/* Footer */}
       <footer className="app-footer glass-panel">
         <div className="footer-left">
-          <span>Built by <strong> Mounika Mylapilli</strong></span>
+          <span>
+            Built by <strong> Sridhar Konda</strong>
+          </span>
           <span className="footer-divider">|</span>
-          <span className="footer-role">AI Engineer</span>
+          <span className="footer-role"></span>
         </div>
         <div className="footer-right">
-          <a href="https://www.linkedin.com/in/mounika-mylapilli-91bb68407/" target="_blank" rel="noreferrer" className="footer-social-btn" title="LinkedIn">
+          <a
+            href="https://www.linkedin.com/in/sridhar-konda/"
+            target="_blank"
+            rel="noreferrer"
+            className="footer-social-btn"
+            title="LinkedIn"
+          >
             <LinkedinIcon size={16} />
           </a>
-          <a href="https://github.com/MOUNIKAMYLAPILLI" target="_blank" rel="noreferrer" className="footer-social-btn" title="GitHub">
+          <a
+            href="https://github.com/Sridharsri67"
+            target="_blank"
+            rel="noreferrer"
+            className="footer-social-btn"
+            title="GitHub"
+          >
             <GithubIcon size={16} />
           </a>
-          <a href="mailto:mylapillimounika27@gmail.com" className="footer-social-btn" title="Email">
+          <a
+            href="mailto:sridharsri5959@gmail.com"
+            className="footer-social-btn"
+            title="Email"
+          >
             <Mail size={16} />
           </a>
         </div>
