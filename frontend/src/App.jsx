@@ -25,6 +25,8 @@ import {
 } from "react-router-dom";
 import "./App.css";
 
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
 // Inline Brand Icons since they are not in the core lucide-react package anymore
 const LinkedinIcon = (props) => (
   <svg
@@ -186,7 +188,7 @@ function App() {
     try {
       const headers = {};
       if (userApiKey) headers["x-gemini-api-key"] = userApiKey;
-      const res = await fetch("/api/health", { headers });
+      const res = await fetch(`${API_BASE}/api/health`, { headers });
       if (res.ok) {
         const data = await res.json();
         setApiHealth(data);
@@ -341,7 +343,7 @@ function App() {
       const reqHeaders = {};
       if (userApiKey) reqHeaders["x-gemini-api-key"] = userApiKey;
 
-      const response = await fetch("/api/analyze", {
+      const response = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
         headers: reqHeaders,
         body: formData,
