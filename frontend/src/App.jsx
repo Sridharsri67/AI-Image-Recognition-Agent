@@ -1075,8 +1075,6 @@ function App() {
           <span>
             Built by <strong> Sridhar Konda</strong>
           </span>
-          <span className="footer-divider">|</span>
-          <span className="footer-role"></span>
         </div>
         <div className="footer-right">
           <a
